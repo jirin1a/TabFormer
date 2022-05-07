@@ -13,7 +13,8 @@ from dataset.card import TransactionDataset
 from models.modules import TabFormerBertLM, TabFormerGPT2
 from misc.utils import random_split_dataset
 from dataset.datacollator import TransDataCollatorForLanguageModeling
-
+import h5py as h5
+import json
 
 logger = logging.getLogger(__name__)
 log = logger
@@ -22,6 +23,42 @@ logging.basicConfig(
     datefmt="%m/%d/%Y %H:%M:%S",
     level=logging.INFO
 )
+
+
+def jiri_convert_subset(d):
+    """
+    Quick conversion of windowed data to numpy
+    :param d:
+    :return:
+    """
+    l = []
+    y = []
+    for i in range(len(d.indices)):
+        l.append(np.asarray(d.dataset[i]))
+        y.append(np.asarray(d.dataset.window_label[i]))
+    return np.asarray(l), np.asarray(y)
+
+
+def jiri_assemble_data(train, eval, test):
+    """
+    Creates a dict with train, dev, test partitions ready to be dumped as hdf5
+    :param train:
+    :param eval:
+    :param test:
+    :return:
+    """
+    D = {}
+    cols = list(range(1, 12))
+    x, y = jiri_convert_subset(train)
+    D['X_train'] = x[..., cols]
+    D['Y_train'] = y
+    x, y = jiri_convert_subset(eval)
+    D['X_dev'] = x[..., cols]
+    D['Y_dev'] = y
+    x, y = jiri_convert_subset(test)
+    D['X_test'] = x[..., cols]
+    D['Y_test'] = y
+    return D
 
 
 def main(args):
@@ -77,6 +114,24 @@ def main(args):
                                                                                testN / totalN))
 
     train_dataset, eval_dataset, test_dataset = random_split_dataset(dataset, lengths)
+
+    if args.jiri_just_dump_files:
+        D = jiri_assemble_data(train_dataset, eval_dataset, test_dataset)
+        fn = "jiri_data.h5"
+        D['X_train_descr'] = []
+        with h5.File(fn, 'w') as of:
+            print("INFO: Saving jiri stuff in ", fn)
+            for key in D.keys():
+                if 'descr' in key:
+                    saux = json.dumps(D[key])
+                    of.create_dataset(key, data=saux)
+                # elif 'info' in key:
+                #     xaux = np.fromstring(pickle.dumps(newD[key]), dtype='uint8')
+                #     of.create_dataset(key, data=xaux)
+                else:
+                    if D[key] is not None and len(D[key]) > 0:
+                        of.create_dataset(key, data=D[key])
+        return
 
     if args.lm_type == "bert":
         tab_net = TabFormerBertLM(custom_special_tokens,

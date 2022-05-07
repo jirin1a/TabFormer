@@ -20,6 +20,8 @@ def define_main_parser(parser=None):
                         help="enable field wise CE")
     parser.add_argument("--mlm", action='store_true',
                         help="masked lm loss; pass it for BERT")
+    parser.add_argument("--jiristuff", dest='jiri_just_dump_files', action='store_true',
+                        help="Will only dump the features and quit.")
     parser.add_argument("--mlm_prob", type=float,
                         default=0.15,
                         help="mask mlm_probability")
