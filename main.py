@@ -39,6 +39,18 @@ def jiri_convert_subset(d):
     return np.asarray(l), np.asarray(y)
 
 
+def jiri_get_descr(data):
+    """
+    Generates list of tuples. Each Tuple is ('discrete', cardinality). Here, we are trying to figure out the cardinalilty
+    :param data:
+    :return:
+    """
+    descr = []
+    for f in data.dataset.trans_table.columns:
+        descr.append(('discrete', len(data.dataset.vocab.token2id[f])))
+    return descr, [s for s in data.dataset.trans_table.columns]
+
+
 def jiri_assemble_data(train, eval, test):
     """
     Creates a dict with train, dev, test partitions ready to be dumped as hdf5
@@ -48,16 +60,27 @@ def jiri_assemble_data(train, eval, test):
     :return:
     """
     D = {}
-    cols = list(range(1, 12))
-    x, y = jiri_convert_subset(train)
-    D['X_train'] = x[..., cols]
-    D['Y_train'] = y
-    x, y = jiri_convert_subset(eval)
-    D['X_dev'] = x[..., cols]
-    D['Y_dev'] = y
+    descr, colnames = jiri_get_descr(train)
+    cols = list(range(1, 11))
+    x1, y1 = jiri_convert_subset(train)
+    x2, y2 = jiri_convert_subset(eval)
+    x3, y3 = jiri_convert_subset(test)
+    # need to remove bias - downstream code requires initial indexes to be 0
+    minima = np.min(np.min(np.vstack([x1, x2, x3]), axis=0), axis=0)
+    x1 = x1 - minima
+    x2 = x2 - minima
+    x3 = x3 - minima
+    nlabels = len(set(y1))
+    D['Y_train_descr'] = [('discrete', nlabels)]
+    D['X_train'] = x1[..., cols]
+    D['Y_train'] = y1
+    D['X_dev'] = x2[..., cols]
+    D['Y_dev'] = y2
     x, y = jiri_convert_subset(test)
-    D['X_test'] = x[..., cols]
-    D['Y_test'] = y
+    D['X_test'] = x3[..., cols]
+    D['Y_test'] = y3
+    D['X_train_descr'] = [descr[i] for i in cols]
+    D['column_names'] = [colnames[i] for i in cols]
     return D
 
 
@@ -118,7 +141,6 @@ def main(args):
     if args.jiri_just_dump_files:
         D = jiri_assemble_data(train_dataset, eval_dataset, test_dataset)
         fn = "jiri_data.h5"
-        D['X_train_descr'] = []
         with h5.File(fn, 'w') as of:
             print("INFO: Saving jiri stuff in ", fn)
             for key in D.keys():
