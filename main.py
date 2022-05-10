@@ -80,7 +80,7 @@ def jiri_assemble_data(train, eval, test):
     D['X_test'] = x3[..., cols]
     D['Y_test'] = y3
     D['X_train_descr'] = [descr[i] for i in cols]
-    D['column_names'] = [colnames[i] for i in cols]
+    D['descr_column_names'] = [colnames[i] for i in cols]
     return D
 
 
