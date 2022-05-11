@@ -33,7 +33,7 @@ def jiri_convert_subset(d):
     """
     l = []
     y = []
-    for i in range(len(d.indices)):
+    for i in d.indices:
         l.append(np.asarray(d.dataset[i]))
         y.append(np.asarray(d.dataset.window_label[i]))
     return np.asarray(l), np.asarray(y)
